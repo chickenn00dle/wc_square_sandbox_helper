@@ -63,6 +63,7 @@ function wc_square_sandbox_helper() {
 		private function init() {
 			require_once dirname( __FILE__ ) . '/includes/class-wc-square-sandbox-api.php';
 			require_once dirname( __FILE__ ) . '/includes/class-wc-square-sandbox-cli.php';
+			require_once dirname( __FILE__ ) . '/includes/class-wc-square-sandbox-catalog-object.php';
 
 			$this->api = new WC_Square_Sandbox_API();
 			$this->cli = new WC_Square_Sandbox_CLI( $this->api );

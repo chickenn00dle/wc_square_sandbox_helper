@@ -19,48 +19,15 @@ class WC_Square_Sandbox_API {
 		$this->access_token = $square_settings['sandbox_token'];
 	}
 
-	public function batch_upsert( $base_name, $num_items ) {
+	public function batch_upsert( $base_name, $num_items, $max_variations = 1 ) {
 
 		$api     = 'catalog/batch-upsert';
 		$method  = 'POST';
 		$batches = array();
 
 		foreach( range( 1, $num_items ) as $num ) {
-			$name    = $base_name . ' ' . $num;
-			$sku     = strtolower( str_replace( ' ', '', $name ) );
-			$item_id = '#' . $sku;
-			$object  = array(
-				"type"                     => "ITEM",
-				"id"                       => $item_id,
-				"is_deleted"               => false,
-				"present_at_all_locations" => true,
-				"item_data"                => array(
-					"name"         => $name,
-					"description"  => $name . " is a test product.",
-					"product_type" => "REGULAR",
-					"variations"   => array(),
-				),
-			);
-
-			$object["item_data"]["variations"][] = array(
-				"type"                     => "ITEM_VARIATION",
-				"id"                       => $item_id . "_variation",
-				"is_deleted"               => false,
-				"present_at_all_locations" => true,
-				"item_variation_data"      => array(
-					"item_id"         => $item_id,
-					"name"            => $name,
-					"pricing_type"    => "FIXED_PRICING",
-					"sku"             => $sku,
-					"track_inventory" => true,
-					"price_money"     => array(
-						"amount"   => rand( 1, 10 ) * 1000,
-						"currency" => "USD"
-					),
-				),
-			);
-
-			$batches[] = (object) array( "objects" => array( (object) $object ) );
+			$object    = new WC_Square_Sandbox_Catalog_Object( $base_name . ' ' . $num, rand( 1, $max_variations ) );
+			$batches[] = (object) array( "objects" => array( (object) $object->get_object() ) );
 			$uuid      = $this->generate_uuid();
 			$request   = (object) array(
 				"batches"         => $batches,

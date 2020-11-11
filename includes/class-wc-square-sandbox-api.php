@@ -35,7 +35,31 @@ class WC_Square_Sandbox_API {
 			);
 		}
 
-		return $this->request( $request, $api, $method );
+		$response = $this->request( $request, $api, $method );
+
+		if ( ! is_wp_error( $response ) ) {
+			$object_ids = array_map(
+				function( $mapping ) {
+					if ( strpos( $mapping['client_object_id'], 'variation' ) ) {
+						return $mapping['object_id'];
+					}
+				},
+				$response['id_mappings']
+			);
+
+			$object_ids = array_filter(
+				$object_ids,
+				function( $mapping ) {
+					return isset( $mapping );
+				}
+			);
+
+			$new_object_ids = array_merge( $object_ids, get_option( 'wc_square_sandbox_helper_object_ids', array() ) );
+
+			update_option( 'wc_square_sandbox_helper_object_ids', $new_object_ids );
+		}
+
+		return $response;
 	}
 
 	private function generate_uuid() {

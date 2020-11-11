@@ -1,5 +1,7 @@
 <?php
 
+use function PHPSTORM_META\type;
+
 if ( ! defined( 'ABSPATH' ) ) {
 
 	exit;
@@ -28,6 +30,10 @@ class WC_Square_Sandbox_CLI {
 			WP_CLI::error( 'Invalid second argument. Total must be an integer.' );
 		}
 
+		if ( 1000 <= $args[1] ) {
+			WP_CLI::error( 'Invalid second argument. Total must 1000 or less.' );
+		}
+
 		if ( 0 < sizeof( $assoc_args ) && ! isset( $assoc_args['max_variations'] ) ) {
 			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
 		}
@@ -47,5 +53,32 @@ class WC_Square_Sandbox_CLI {
 		}
 
 		WP_CLI::success( 'Batch upsert complete!' );
+	}
+
+	public function batch_delete( $args, $assoc_args ) {
+
+		if ( 0 < sizeof( $args ) ) {
+			foreach( $args as $arg ) {
+				if ( is_numeric( $arg ) ) {
+					WP_CLI::error( 'Invalid argument supplied: ' . $arg );
+				}
+			}
+		}
+
+		if ( 0 !== sizeof( $assoc_args ) ) {
+			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
+		}
+
+		if ( 0 < sizeof( $args ) ) {
+			$result = $this->api->batch_delete( $args );
+		} else {
+			$result = $this->api->batch_delete();
+		}
+
+		if ( is_wp_error( $result ) ) {
+			WP_CLI::error( $result->get_error_message() );
+		}
+
+		WP_CLI::success( 'Batch delete complete!' );
 	}
 }

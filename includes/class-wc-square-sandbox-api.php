@@ -19,6 +19,27 @@ class WC_Square_Sandbox_API {
 		$this->access_token = $square_settings['sandbox_token'];
 	}
 
+	public function batch_delete( $object_ids = null ) {
+
+		$api     = 'catalog/batch-delete';
+		$method  = 'POST';
+
+		if ( ! $object_ids ) {
+			$object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
+		}
+
+		$data     = (object) array( "object_ids" => $object_ids );
+		$response = $this->request( $data, $api, $method );
+
+		if ( ! is_wp_error( $response ) ) {
+			$new_object_ids = array_diff( $response['deleted_object_ids'], get_option( 'wc_square_sandbox_helper_object_ids', array() ) );
+
+			update_option( 'wc_square_sandbox_helper_object_ids', $new_object_ids );
+		}
+
+		return $response;
+	}
+
 	public function batch_upsert( $base_name, $num_items, $max_variations = 1 ) {
 
 		$api     = 'catalog/batch-upsert';
@@ -28,14 +49,15 @@ class WC_Square_Sandbox_API {
 		foreach( range( 1, $num_items ) as $num ) {
 			$object    = new WC_Square_Sandbox_Catalog_Object( $base_name . ' ' . $num, rand( 1, $max_variations ) );
 			$batches[] = (object) array( "objects" => array( (object) $object->get_object() ) );
-			$uuid      = $this->generate_uuid();
-			$request   = (object) array(
-				"batches"         => $batches,
-				"idempotency_key" => $uuid,
-			);
 		}
 
-		$response = $this->request( $request, $api, $method );
+		$uuid      = $this->generate_uuid();
+		$data   = (object) array(
+			"batches"         => $batches,
+			"idempotency_key" => $uuid,
+		);
+
+		$response = $this->request( $data, $api, $method );
 
 		if ( ! is_wp_error( $response ) ) {
 			$object_ids = array_map(
@@ -96,7 +118,7 @@ class WC_Square_Sandbox_API {
 		return $message;
 	}
 
-	private function request( $request, $api, $method ) {
+	private function request( $data, $api, $method ) {
 
 		$headers  = $this->get_headers();
 		$response = wp_safe_remote_post(
@@ -104,7 +126,7 @@ class WC_Square_Sandbox_API {
 			array(
 				'method'  => $method,
 				'headers' => $headers,
-				'body'    => wp_json_encode( $request ),
+				'body'    => wp_json_encode( $data ),
 				'timeout' => 70,
 			)
 		);

@@ -13,31 +13,14 @@ class WC_Square_Sandbox_API {
 
 	private $access_token;
 
+	private $location_id;
+
 	function __construct() {
 
 		$square_settings    = get_option( 'wc_square_settings', array() );
+
 		$this->access_token = $square_settings['sandbox_token'];
-	}
-
-	public function batch_delete( $object_ids = null ) {
-
-		$api     = 'catalog/batch-delete';
-		$method  = 'POST';
-
-		if ( ! $object_ids ) {
-			$object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
-		}
-
-		$data     = (object) array( "object_ids" => $object_ids );
-		$response = $this->request( $data, $api, $method );
-
-		if ( ! is_wp_error( $response ) ) {
-			$new_object_ids = array_diff( $response['deleted_object_ids'], get_option( 'wc_square_sandbox_helper_object_ids', array() ) );
-
-			update_option( 'wc_square_sandbox_helper_object_ids', $new_object_ids );
-		}
-
-		return $response;
+		$this->location_id  = $square_settings['sandbox_location_id'];
 	}
 
 	public function batch_upsert( $base_name, $num_items, $max_variations = 1 ) {
@@ -51,10 +34,9 @@ class WC_Square_Sandbox_API {
 			$batches[] = (object) array( "objects" => array( (object) $object->get_object() ) );
 		}
 
-		$uuid      = $this->generate_uuid();
 		$data   = (object) array(
 			"batches"         => $batches,
-			"idempotency_key" => $uuid,
+			"idempotency_key" => $this->generate_uuid(),
 		);
 
 		$response = $this->request( $data, $api, $method );
@@ -80,6 +62,62 @@ class WC_Square_Sandbox_API {
 
 			update_option( 'wc_square_sandbox_helper_object_ids', $new_object_ids );
 		}
+
+		return $response;
+	}
+
+	public function batch_delete( $object_ids = null ) {
+
+		$api     = 'catalog/batch-delete';
+		$method  = 'POST';
+
+		if ( ! $object_ids ) {
+			$object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
+		}
+
+		$data     = (object) array( "object_ids" => $object_ids );
+		$response = $this->request( $data, $api, $method );
+
+		if ( ! is_wp_error( $response ) ) {
+			$new_object_ids = array_diff( $response['deleted_object_ids'], get_option( 'wc_square_sandbox_helper_object_ids', array() ) );
+
+			update_option( 'wc_square_sandbox_helper_object_ids', $new_object_ids );
+		}
+
+		return $response;
+	}
+
+	public function batch_change( $quantity, $object_ids = null ) {
+
+		$api     = 'inventory/batch-change';
+		$method  = 'POST';
+
+		if ( ! $object_ids ) {
+			$object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
+		}
+
+		$changes = array();
+
+		foreach( $object_ids as $object_id ) {
+			$changes[] = (object) array(
+				"type"       => "ADJUSTMENT",
+				"adjustment" => (object) array(
+					"catalog_object_id"   => $object_id,
+					"from_state"          => "NONE",
+					"to_state"            => "IN_STOCK",
+					"location_id"         => $this->location_id,
+					"quantity"            => $quantity,
+					"occurred_at"         => gmdate( "Y-m-d\TH:m:s.u\Z" ),
+				),
+			);
+		}
+
+		$data = (object) array(
+			"changes"         => $changes,
+			"idempotency_key" => $this->generate_uuid(),
+		);
+
+		$response = $this->request( $data, $api, $method );
 
 		return $response;
 	}
@@ -137,7 +175,7 @@ class WC_Square_Sandbox_API {
 
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
-		if ( array_key_exists( 'errors', $response_body ) ) {
+		if ( array_key_exists( 'errors', $response_body ) && isset( $response_body['errors'] ) ) {
 			return new WP_Error( 'wc_square_sandbox_helper_response', $this->get_errors( $response_body ) );
 		}
 

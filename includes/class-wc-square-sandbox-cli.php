@@ -81,4 +81,42 @@ class WC_Square_Sandbox_CLI {
 
 		WP_CLI::success( 'Batch delete complete!' );
 	}
+
+	public function batch_change( $args, $assoc_args ) {
+
+		if ( 0 === sizeof( $args ) ) {
+			WP_CLI::error( 'Invalid number of arguments. Please provide the following: \n 1) Inventory change quantity\n 2) Space seperated list of object IDs (optional)' );
+		}
+
+		if ( ! is_numeric( $args[0] ) ) {
+			WP_CLI::error( 'Invalid first argument. Quantity must be an integer.' );
+		}
+
+		if ( 1 < sizeof( $args ) ) {
+			foreach( $args as $arg ) {
+				if ( $arg !== $args[0] && is_numeric( $arg ) ) {
+					WP_CLI::error( 'Invalid argument supplied: ' . $arg );
+				}
+			}
+		}
+
+		if ( 0 !== sizeof( $assoc_args ) ) {
+			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
+		}
+
+		$quantity = array_shift( $args );
+
+		if ( 0 === sizeof( $args ) ) {
+			$result = $this->api->batch_change( $quantity );
+		} else {
+			$result = $this->api->batch_change( $quantity, $args );
+		}
+
+		if ( is_wp_error( $result ) ) {
+			WP_CLI::error( $result->get_error_message() );
+		}
+
+		WP_CLI::success( 'Batch inventory change complete!' );
+
+	}
 }

@@ -152,7 +152,6 @@ class WC_Square_Sandbox_API {
 			return new WP_Error( 'wc_square_sandbox_helper_request', 'Invalid Object IDs provided.' );
 		}
 
-		
 		$batches = array_chunk( $object_ids, 100 );
 
 		foreach( $batches as $batch ) {
@@ -229,7 +228,7 @@ class WC_Square_Sandbox_API {
 		$args     = array(
 			'method'  => $method,
 			'headers' => $headers,
-			'timeout' => 120,
+			'timeout' => 150,
 		);
 
 		if ( $query_args ) {

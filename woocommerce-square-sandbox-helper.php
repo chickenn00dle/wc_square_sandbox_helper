@@ -55,12 +55,15 @@ function wc_square_sandbox_helper() {
 		private $cli;
 
 		function __construct() {
+
 			$this->init();
+			$this->maybe_set_sync_interval();
 
 			add_action( 'cli_init', array( $this, 'register_cli_commands' ) );
 		}
 
 		private function init() {
+
 			require_once dirname( __FILE__ ) . '/includes/class-wc-square-sandbox-api.php';
 			require_once dirname( __FILE__ ) . '/includes/class-wc-square-sandbox-cli.php';
 			require_once dirname( __FILE__ ) . '/includes/class-wc-square-sandbox-catalog-object.php';
@@ -69,7 +72,20 @@ function wc_square_sandbox_helper() {
 			$this->cli = new WC_Square_Sandbox_CLI( $this->api );
 		}
 
+		private function maybe_set_sync_interval() {
+
+			if ( get_option( 'wc_square_sandbox_helper_sync_interval', false ) ) {
+				add_filter(
+					'wc_square_sync_interval',
+					function( $interval ) {
+						return ( (int) get_option( 'wc_square_sandbox_helper_sync_interval' ) ) * MINUTE_IN_SECONDS;
+					}
+				);
+			}
+		}
+
 		public function register_cli_commands() {
+
 			WP_CLI::add_command( 'square', $this->cli );
 		}
 	}

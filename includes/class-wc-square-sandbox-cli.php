@@ -145,6 +145,36 @@ class WC_Square_Sandbox_CLI {
 		}
 
 		WP_CLI::success( 'Batch inventory change complete!' );
+	}
 
+	public function set_interval( $args, $assoc_args ) {
+
+		if ( 1 < sizeof( $args ) ) {
+			WP_CLI::error( 'Set interval takes one argument: Interval in minutes' );
+		}
+
+		if ( 0 < sizeof( $args ) && ( ! is_numeric( $args[0] ) || 0 === (int) $args[0] ) ) {
+			WP_CLI::error( 'Invalid first argument. Interval must be an integer.' );
+		}
+
+		if ( 0 === sizeof( $args ) && ! isset( $assoc_args['reset'] ) ) {
+			WP_CLI::error( 'No arguments and no flags provided.' );
+		}
+
+		if ( 0 < sizeof( $assoc_args ) && ! isset( $assoc_args['reset'] ) ) {
+			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
+		}
+
+		if ( 1 === sizeof( $args ) ) {
+			update_option( 'wc_square_sandbox_helper_sync_interval', $args[0] );
+			WP_CLI::success( 'Sync Interval updated to ' . $args[0] );
+			exit();
+		}
+
+		if ( 0 < sizeof( $assoc_args ) && isset( $assoc_args['reset'] ) ) {
+			delete_option( 'wc_square_sandbox_helper_sync_interval' );
+			WP_CLI::success( 'Sync Interval has been reset' );
+			exit();
+		}
 	}
 }

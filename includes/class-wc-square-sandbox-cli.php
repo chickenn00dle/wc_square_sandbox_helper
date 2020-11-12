@@ -16,6 +16,34 @@ class WC_Square_Sandbox_CLI {
 		$this->api = $api;
 	}
 
+	public function list( $args, $assoc_args ) {
+
+		if ( 0 !== sizeof( $args ) ) {
+			WP_CLI::error( 'list takes no arguments.' );
+		}
+
+		if ( 1 < sizeof( $assoc_args ) ) {
+			unset( $assoc_args['save'] );
+			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
+		}
+
+		if ( 1 === sizeof( $assoc_args ) && ! isset( $assoc_args['save'] ) ) {
+			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
+		}
+
+		$result = $this->api->list( isset( $assoc_args['save'] ) );
+
+		if ( is_wp_error( $result ) ) {
+			WP_CLI::error( $result->get_error_message() );
+		}
+
+		WP_CLI::success( 'Catalog IDs fetched:' );
+
+		foreach ( $result as $catalog_id ) {
+			WP_CLI::line( $catalog_id );
+		}
+	}
+
 	public function batch_upsert( $args, $assoc_args ) {
 
 		if ( 2 !== sizeof( $args ) ) {
@@ -30,7 +58,7 @@ class WC_Square_Sandbox_CLI {
 			WP_CLI::error( 'Invalid second argument. Total must be an integer.' );
 		}
 
-		if ( 1000 <= $args[1] ) {
+		if ( 1000 < $args[1] ) {
 			WP_CLI::error( 'Invalid second argument. Total must 1000 or less.' );
 		}
 

@@ -23,6 +23,47 @@ class WC_Square_Sandbox_API {
 		$this->location_id  = $square_settings['sandbox_location_id'];
 	}
 
+	public function list( $save = false ) {
+
+		$api        = 'catalog/list';
+		$method     = 'GET';
+		$query_args = array( "types" => urlencode( 'ITEM,ITEM_VARIATION' ) );
+		$object_ids = array();
+		$cursor     = null;
+
+		do {
+
+			if ( $cursor ) {
+				$query_args['cursor'] = $cursor;
+			} else {
+				unset( $query_args['cursor'] );
+			}
+
+			$response = $this->request( null, $api, $method, $query_args );
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			if ( ! isset( $response['objects'] ) ) {
+				return new WP_Error( 'wc_square_sandbox_helper_empty_response', 'Catalog is empty.' );
+			}
+
+			foreach ( $response['objects'] as $object ) {
+				$object_ids[] = $object['id'];
+			}
+
+			$cursor = isset( $response['cursor'] ) ? $response['cursor'] : null;
+
+		} while ( $cursor );
+
+		if ( $save ) {
+			update_option( 'wc_square_sandbox_helper_object_ids', $object_ids );
+		}
+
+		return $object_ids;
+	}
+
 	public function batch_upsert( $base_name, $num_items, $max_variations = 1 ) {
 
 		$api     = 'catalog/batch-upsert';
@@ -75,16 +116,27 @@ class WC_Square_Sandbox_API {
 			$object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
 		}
 
-		$data     = (object) array( "object_ids" => $object_ids );
-		$response = $this->request( $data, $api, $method );
+		if ( ! $object_ids ) {
+			return new WP_Error( 'wc_square_sandbox_helper_request', 'Invalid Object IDs provided.' );
+		}
 
-		if ( ! is_wp_error( $response ) ) {
+		$batches = array_chunk( $object_ids, 200 );
+
+		foreach( $batches as $batch ) {
+
+			$data     = (object) array( "object_ids" => $batch );
+			$response = $this->request( $data, $api, $method );
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
 			$new_object_ids = array_diff( $response['deleted_object_ids'], get_option( 'wc_square_sandbox_helper_object_ids', array() ) );
 
 			update_option( 'wc_square_sandbox_helper_object_ids', $new_object_ids );
 		}
 
-		return $response;
+		return $object_ids;
 	}
 
 	public function batch_change( $quantity, $object_ids = null ) {
@@ -94,6 +146,10 @@ class WC_Square_Sandbox_API {
 
 		if ( ! $object_ids ) {
 			$object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
+		}
+
+		if ( ! $object_ids ) {
+			return new WP_Error( 'wc_square_sandbox_helper_request', 'Invalid Object IDs provided.' );
 		}
 
 		$changes = array();
@@ -156,17 +212,27 @@ class WC_Square_Sandbox_API {
 		return $message;
 	}
 
-	private function request( $data, $api, $method ) {
+	private function request( $data, $api, $method, $query_args = null ) {
 
 		$headers  = $this->get_headers();
+		$url      = $this::ENDPOINT . $api;
+		$args     = array(
+			'method'  => $method,
+			'headers' => $headers,
+			'timeout' => 60,
+		);
+
+		if ( $query_args ) {
+			$url = add_query_arg( $query_args, $url );
+		}
+
+		if ( $data ) {
+			$args['body'] = wp_json_encode( $data );
+		}
+
 		$response = wp_safe_remote_post(
-			$this::ENDPOINT . $api,
-			array(
-				'method'  => $method,
-				'headers' => $headers,
-				'body'    => wp_json_encode( $data ),
-				'timeout' => 70,
-			)
+			$url,
+			$args
 		);
 
 		if ( is_wp_error( $response ) ) {

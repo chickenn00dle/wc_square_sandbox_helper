@@ -58,8 +58,8 @@ class WC_Square_Sandbox_CLI {
 			WP_CLI::error( 'Invalid second argument. Total must be an integer.' );
 		}
 
-		if ( 1000 < $args[1] ) {
-			WP_CLI::error( 'Invalid second argument. Total must 1000 or less.' );
+		if ( 500 < $args[1] ) {
+			WP_CLI::error( 'Invalid second argument. Total must 500 or less.' );
 		}
 
 		if ( 0 < sizeof( $assoc_args ) && ! isset( $assoc_args['max_variations'] ) ) {

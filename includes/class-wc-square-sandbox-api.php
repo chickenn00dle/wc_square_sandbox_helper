@@ -27,7 +27,7 @@ class WC_Square_Sandbox_API {
 
 		$api        = 'catalog/list';
 		$method     = 'GET';
-		$query_args = array( "types" => urlencode( 'ITEM,ITEM_VARIATION' ) );
+		$query_args = array( "types" => urlencode( 'ITEM_VARIATION' ) );
 		$object_ids = array();
 		$cursor     = null;
 
@@ -152,28 +152,38 @@ class WC_Square_Sandbox_API {
 			return new WP_Error( 'wc_square_sandbox_helper_request', 'Invalid Object IDs provided.' );
 		}
 
-		$changes = array();
+		
+		$batches = array_chunk( $object_ids, 100 );
 
-		foreach( $object_ids as $object_id ) {
-			$changes[] = (object) array(
-				"type"       => "ADJUSTMENT",
-				"adjustment" => (object) array(
-					"catalog_object_id"   => $object_id,
-					"from_state"          => "NONE",
-					"to_state"            => "IN_STOCK",
-					"location_id"         => $this->location_id,
-					"quantity"            => $quantity,
-					"occurred_at"         => gmdate( "Y-m-d\TH:m:s.u\Z" ),
-				),
+		foreach( $batches as $batch ) {
+
+			$changes = array();
+
+			foreach( $batch as $object_id ) {
+				$changes[] = (object) array(
+					"type"       => "ADJUSTMENT",
+					"adjustment" => (object) array(
+						"catalog_object_id"   => $object_id,
+						"from_state"          => "NONE",
+						"to_state"            => "IN_STOCK",
+						"location_id"         => $this->location_id,
+						"quantity"            => $quantity,
+						"occurred_at"         => gmdate( "Y-m-d\TH:m:s.u\Z" ),
+					),
+				);
+			}
+
+			$data = (object) array(
+				"changes"         => $changes,
+				"idempotency_key" => $this->generate_uuid(),
 			);
+
+			$response = $this->request( $data, $api, $method );
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
 		}
-
-		$data = (object) array(
-			"changes"         => $changes,
-			"idempotency_key" => $this->generate_uuid(),
-		);
-
-		$response = $this->request( $data, $api, $method );
 
 		return $response;
 	}
@@ -219,7 +229,7 @@ class WC_Square_Sandbox_API {
 		$args     = array(
 			'method'  => $method,
 			'headers' => $headers,
-			'timeout' => 60,
+			'timeout' => 120,
 		);
 
 		if ( $query_args ) {
@@ -241,7 +251,7 @@ class WC_Square_Sandbox_API {
 
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
-		if ( array_key_exists( 'errors', $response_body ) && isset( $response_body['errors'] ) ) {
+		if ( ! $response_body || ( array_key_exists( 'errors', $response_body ) && isset( $response_body['errors'] ) ) ) {
 			return new WP_Error( 'wc_square_sandbox_helper_response', $this->get_errors( $response_body ) );
 		}
 

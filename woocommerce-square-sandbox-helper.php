@@ -31,7 +31,7 @@ function wc_square_sandbox_helper_missing_square_notice() {
 function wc_square_sandbox_helper_missing_square_token_notice() {
 
 	echo  sprintf(
-			__( '%1$sWooCommerce Square Sandbox Helper requires a Square sandbox access token to be set. You can set your %2$sSquare sandbox access token here%3$s.%4$s', 'wc-square-sandbox-helper' ),
+			__( '%1$sWooCommerce Square Sandbox Helper requires a Square sandbox access token and Location ID to be set. You can set your %2$saccess token and location ID here%3$s.%4$s', 'wc-square-sandbox-helper' ),
 			'<div class="error"><p><strong>',
 			'<a href="' . get_site_url() . '/wp-admin/admin.php?page=wc-settings&tab=square" target="_blank">',
 			'</a>',
@@ -106,7 +106,7 @@ function wc_square_sandbox_helper_init() {
 
 	$square_settings = get_option( 'wc_square_settings', array() );
 
-	if ( ! isset( $square_settings['sandbox_token'] ) || ! $square_settings['sandbox_token'] ) {
+	if ( ! isset( $square_settings['sandbox_token'], $square_settings['sandbox_location_id'] ) || ! $square_settings['sandbox_token'] || ! $square_settings['sandbox_location_id'] ) {
 		add_action( 'admin_notices', 'wc_square_sandbox_helper_missing_square_token_notice' );
 		return;
 	}

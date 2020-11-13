@@ -27,7 +27,7 @@ class WC_Square_Sandbox_API {
 
 		$api        = 'catalog/list';
 		$method     = 'GET';
-		$query_args = array( "types" => urlencode( 'ITEM_VARIATION' ) );
+		$query_args = array( "types" => urlencode( 'ITEM,ITEM_VARIATION' ) );
 		$object_ids = array();
 		$cursor     = null;
 
@@ -83,24 +83,15 @@ class WC_Square_Sandbox_API {
 		$response = $this->request( $data, $api, $method );
 
 		if ( ! is_wp_error( $response ) ) {
+
 			$object_ids = array_map(
-				function( $mapping ) {
-					if ( strpos( $mapping['client_object_id'], 'variation' ) ) {
-						return $mapping['object_id'];
-					}
+				function( $object ) {
+					return $object['object_id'];
 				},
 				$response['id_mappings']
 			);
 
-			$object_ids = array_filter(
-				$object_ids,
-				function( $mapping ) {
-					return isset( $mapping );
-				}
-			);
-
 			$new_object_ids = array_merge( $object_ids, get_option( 'wc_square_sandbox_helper_object_ids', array() ) );
-
 			update_option( 'wc_square_sandbox_helper_object_ids', $new_object_ids );
 		}
 
@@ -132,7 +123,6 @@ class WC_Square_Sandbox_API {
 			}
 
 			$new_object_ids = array_diff( $response['deleted_object_ids'], get_option( 'wc_square_sandbox_helper_object_ids', array() ) );
-
 			update_option( 'wc_square_sandbox_helper_object_ids', $new_object_ids );
 		}
 
@@ -250,8 +240,12 @@ class WC_Square_Sandbox_API {
 
 		$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
-		if ( ! $response_body || ( array_key_exists( 'errors', $response_body ) && isset( $response_body['errors'] ) ) ) {
-			return new WP_Error( 'wc_square_sandbox_helper_response', $this->get_errors( $response_body ) );
+		if ( empty( $response_body ) ) {
+			return new WP_Error( 'wc_square_sandbox_helper_response_empty', 'Empty response from Square API' );
+		}
+
+		if ( array_key_exists( 'errors', $response_body ) && isset( $response_body['errors'] ) ) {
+			return new WP_Error( 'wc_square_sandbox_helper_response_error', $this->get_errors( $response_body ) );
 		}
 
 		return $response_body;

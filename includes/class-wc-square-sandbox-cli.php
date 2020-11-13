@@ -107,6 +107,20 @@ class WC_Square_Sandbox_CLI {
 			WP_CLI::error( $result->get_error_message() );
 		}
 
+		if ( ! empty( $result ) ) {
+			foreach( $result as $object_id ) {
+				$product = WooCommerce\Square\Handlers\Product::get_product_by_square_variation_id( $object_id );
+
+				if ( $product ) {
+					$product->delete( true );
+
+					if ( $product->is_type( 'variation' ) && $parent = wc_get_product( $product->get_parent_id() ) ) {
+						$parent->delete( true );
+					}
+				}
+			}
+		}
+
 		WP_CLI::success( 'Batch delete complete!' );
 	}
 

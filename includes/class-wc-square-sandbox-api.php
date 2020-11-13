@@ -23,7 +23,13 @@ class WC_Square_Sandbox_API {
 		$this->location_id  = $square_settings['sandbox_location_id'];
 	}
 
-	public function list( $save = false ) {
+	public function list( $cached = false, $save = false ) {
+
+		if ( $cached ) {
+			$catalog_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
+
+			return empty( $catalog_ids ) ? new WP_Error( 'wc_square_sandbox_helper_empty_cache', 'No cached catalog IDs' ) : $catalog_ids;
+		}
 
 		$api        = 'catalog/list';
 		$method     = 'GET';

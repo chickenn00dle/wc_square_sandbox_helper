@@ -18,20 +18,28 @@ class WC_Square_Sandbox_CLI {
 
 	public function list( $args, $assoc_args ) {
 
-		if ( 0 !== sizeof( $args ) ) {
+		if ( ! empty( $args ) ) {
 			WP_CLI::error( 'list takes no arguments.' );
 		}
 
-		if ( 1 < sizeof( $assoc_args ) ) {
+		$cached = false;
+		$save   = false;
+			
+		if ( isset( $assoc_args['cached'] ) ) {
+			$cached = true;
+			unset( $assoc_args['cached'] );
+		}
+		
+		if ( isset( $assoc_args['save'] ) ) {
+			$save = true;
 			unset( $assoc_args['save'] );
+		}
+
+		if ( 0 !== sizeof( $assoc_args ) ) {
 			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
 		}
 
-		if ( 1 === sizeof( $assoc_args ) && ! isset( $assoc_args['save'] ) ) {
-			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
-		}
-
-		$result = $this->api->list( isset( $assoc_args['save'] ) );
+		$result = $this->api->list( $cached, $save );
 
 		if ( is_wp_error( $result ) ) {
 			WP_CLI::error( $result->get_error_message() );
@@ -54,27 +62,27 @@ class WC_Square_Sandbox_CLI {
 			WP_CLI::error( 'Invalid first argument. Base name must be of type string.' );
 		}
 
-		if ( ! is_numeric( $args[1] ) ) {
-			WP_CLI::error( 'Invalid second argument. Total must be an integer.' );
+		if ( ! is_numeric( $args[1] ) || 500 < $args[1] ) {
+			WP_CLI::error( 'Invalid second argument. Total must be an integer of 500 or less.' );
 		}
 
-		if ( 500 < $args[1] ) {
-			WP_CLI::error( 'Invalid second argument. Total must 500 or less.' );
+		$max_variations = 1;
+
+		if ( isset( $assoc_args['max_variations'] ) ) {
+			$max_variations = $assoc_args['max_variations'];
+
+			if ( ! is_numeric( $max_variations ) || 5 < $max_variations ) {
+				WP_CLI::error( 'Invalid value for option max_variations. Must be an integer of 5 or less.' );
+			}
+
+			unset( $assoc_args['max_variations'] );
 		}
 
-		if ( 0 < sizeof( $assoc_args ) && ! isset( $assoc_args['max_variations'] ) ) {
+		if ( ! empty( $assoc_args ) ) {
 			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
 		}
 
-		if ( 0 < sizeof( $assoc_args ) ) {
-			if ( ! is_numeric( $assoc_args['max_variations'] ) ) {
-				WP_CLI::error( 'Option max_variations must be an integer.' );
-			}
-
-			$result = $this->api->batch_upsert( $args[0], $args[1], $assoc_args['max_variations'] );
-		} else {
-			$result = $this->api->batch_upsert( $args[0], $args[1] );
-		}
+		$result = $this->api->batch_upsert( $args[0], $args[1], $max_variations );
 
 		if ( is_wp_error( $result ) ) {
 			WP_CLI::error( $result->get_error_message() );
@@ -85,7 +93,7 @@ class WC_Square_Sandbox_CLI {
 
 	public function batch_delete( $args, $assoc_args ) {
 
-		if ( 0 < sizeof( $args ) ) {
+		if ( ! empty( $args ) ) {
 			foreach( $args as $arg ) {
 				if ( is_numeric( $arg ) ) {
 					WP_CLI::error( 'Invalid argument supplied: ' . $arg );
@@ -97,7 +105,7 @@ class WC_Square_Sandbox_CLI {
 			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
 		}
 
-		if ( 0 < sizeof( $args ) ) {
+		if ( ! empty( $args ) ) {
 			$result = $this->api->batch_delete( $args );
 		} else {
 			$result = $this->api->batch_delete();
@@ -126,8 +134,8 @@ class WC_Square_Sandbox_CLI {
 
 	public function batch_change( $args, $assoc_args ) {
 
-		if ( 0 === sizeof( $args ) ) {
-			WP_CLI::error( 'Invalid number of arguments. Please provide the following: \n 1) Inventory change quantity\n 2) Space seperated list of object IDs (optional)' );
+		if ( empty( $args ) ) {
+			WP_CLI::error( 'Invalid number of arguments provided. Please provide the following: \n 1) Inventory change quantity\n 2) Space seperated list of object IDs (optional)' );
 		}
 
 		if ( ! is_numeric( $args[0] ) ) {
@@ -135,20 +143,20 @@ class WC_Square_Sandbox_CLI {
 		}
 
 		if ( 1 < sizeof( $args ) ) {
-			foreach( $args as $arg ) {
-				if ( $arg !== $args[0] && is_numeric( $arg ) ) {
-					WP_CLI::error( 'Invalid argument supplied: ' . $arg );
+			foreach( range( 1, sizeof( $args ) ) as $arg ) {
+				if ( is_numeric( $args[ $arg ] ) ) {
+					WP_CLI::error( 'Invalid argument supplied: ' . $args[ $arg ] );
 				}
 			}
 		}
 
-		if ( 0 !== sizeof( $assoc_args ) ) {
+		if ( ! empty( $assoc_args ) ) {
 			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
 		}
 
 		$quantity = array_shift( $args );
 
-		if ( 0 === sizeof( $args ) ) {
+		if ( empty( $args ) ) {
 			$result = $this->api->batch_change( $quantity );
 		} else {
 			$result = $this->api->batch_change( $quantity, $args );
@@ -167,27 +175,34 @@ class WC_Square_Sandbox_CLI {
 			WP_CLI::error( 'Set interval takes one argument: Interval in minutes' );
 		}
 
-		if ( 0 < sizeof( $args ) && ( ! is_numeric( $args[0] ) || 0 === (int) $args[0] ) ) {
-			WP_CLI::error( 'Invalid first argument. Interval must be an integer.' );
+		if ( ! empty( $args ) && ( ! is_numeric( $args[0] ) || 0 === (int) $args[0] ) ) {
+			WP_CLI::error( 'Invalid first argument. Interval must be an integer greater than 0.' );
 		}
 
-		if ( 0 === sizeof( $args ) && ! isset( $assoc_args['reset'] ) ) {
+		$reset = false;
+
+		if ( isset( $assoc_args['reset'] ) ) {
+			$reset = true;
+			unset( $assoc_args['reset'] );
+		}
+
+		if ( empty( $args ) && ! $reset ) {
 			WP_CLI::error( 'No arguments and no flags provided.' );
 		}
 
-		if ( 0 < sizeof( $assoc_args ) && ! isset( $assoc_args['reset'] ) ) {
+		if ( ! empty( $assoc_args ) ) {
 			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
 		}
 
-		if ( 1 === sizeof( $args ) ) {
-			update_option( 'wc_square_sandbox_helper_sync_interval', $args[0] );
-			WP_CLI::success( 'Sync Interval updated to ' . $args[0] );
+		if ( $reset ) {
+			delete_option( 'wc_square_sandbox_helper_sync_interval' );
+			WP_CLI::success( 'Sync Interval has been reset' );
 			exit();
 		}
 
-		if ( 0 < sizeof( $assoc_args ) && isset( $assoc_args['reset'] ) ) {
-			delete_option( 'wc_square_sandbox_helper_sync_interval' );
-			WP_CLI::success( 'Sync Interval has been reset' );
+		if ( ! empty( $args ) ) {
+			update_option( 'wc_square_sandbox_helper_sync_interval', $args[0] );
+			WP_CLI::success( 'Sync Interval updated to ' . $args[0] );
 			exit();
 		}
 	}

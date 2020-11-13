@@ -26,24 +26,25 @@ class WC_Square_Sandbox_API {
 	public function list( $cached = false, $save = false ) {
 
 		if ( $cached ) {
-			$catalog_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
+			$object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
 
-			return empty( $catalog_ids ) ? new WP_Error( 'wc_square_sandbox_helper_empty_cache', 'No cached catalog IDs' ) : $catalog_ids;
+			return empty( $object_ids ) ? new WP_Error( 'wc_square_sandbox_helper_empty_cache', 'No cached catalog IDs' ) : $object_ids;
 		}
 
 		$api        = 'catalog/list';
 		$method     = 'GET';
-		$query_args = array( "types" => urlencode( 'ITEM,ITEM_VARIATION' ) );
-		$object_ids = array();
 		$cursor     = null;
+		$query_args = array(
+			"types"  => urlencode( 'ITEM,ITEM_VARIATION' ),
+			"cursor" => $cursor
+		);
+
+		$object_ids = array(
+			'ITEM'           => array(),
+			'ITEM_VARIATION' => array(),
+		);
 
 		do {
-
-			if ( $cursor ) {
-				$query_args['cursor'] = $cursor;
-			} else {
-				unset( $query_args['cursor'] );
-			}
 
 			$response = $this->request( null, $api, $method, $query_args );
 
@@ -52,11 +53,11 @@ class WC_Square_Sandbox_API {
 			}
 
 			if ( ! isset( $response['objects'] ) ) {
-				return new WP_Error( 'wc_square_sandbox_helper_empty_response', 'Catalog is empty.' );
+				return new WP_Error( 'wc_square_sandbox_helper_empty_response', 'Square catalog is empty.' );
 			}
 
 			foreach ( $response['objects'] as $object ) {
-				$object_ids[] = $object['id'];
+				$object_ids[ $object['type'] ][] = $object['id'];
 			}
 
 			$cursor = isset( $response['cursor'] ) ? $response['cursor'] : null;
@@ -90,14 +91,20 @@ class WC_Square_Sandbox_API {
 
 		if ( ! is_wp_error( $response ) ) {
 
-			$object_ids = array_map(
-				function( $object ) {
-					return $object['object_id'];
-				},
-				$response['id_mappings']
+			$object_ids = array(
+				'ITEM'           => array(),
+				'ITEM_VARIATION' => array(),
 			);
 
-			$new_object_ids = array_merge( $object_ids, get_option( 'wc_square_sandbox_helper_object_ids', array() ) );
+			foreach( $response['id_mappings'] as $object ) {
+				if ( strpos( $object['client_object_id'], 'variation' ) ) {
+					$object_ids['ITEM_VARIATION'][] = $object['object_id'];
+				} else {
+					$object_ids['ITEM'][] = $object['object_id'];
+				}
+			}
+
+			$new_object_ids = array_merge_recursive( $object_ids, get_option( 'wc_square_sandbox_helper_object_ids', array() ) );
 			update_option( 'wc_square_sandbox_helper_object_ids', $new_object_ids );
 		}
 
@@ -106,21 +113,26 @@ class WC_Square_Sandbox_API {
 
 	public function batch_delete( $object_ids = null ) {
 
-		$api     = 'catalog/batch-delete';
-		$method  = 'POST';
+		$api                = 'catalog/batch-delete';
+		$method             = 'POST';
+		$deleted_object_ids = array();
 
 		if ( ! $object_ids ) {
-			$object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
+			$cached_object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
+			$object_ids        = array();
+
+			foreach( $cached_object_ids as $object_ids_array ) {
+				$object_ids = array_merge( $object_ids, $object_ids_array );
+			}
 		}
 
-		if ( ! $object_ids ) {
-			return new WP_Error( 'wc_square_sandbox_helper_request', 'Invalid Object IDs provided.' );
+		if ( empty( $object_ids ) ) {
+			return new WP_Error( 'wc_square_sandbox_helper_request', 'No cached catalog IDs.' );
 		}
 
 		$batches = array_chunk( $object_ids, 200 );
 
 		foreach( $batches as $batch ) {
-
 			$data     = (object) array( "object_ids" => $batch );
 			$response = $this->request( $data, $api, $method );
 
@@ -128,8 +140,36 @@ class WC_Square_Sandbox_API {
 				return $response;
 			}
 
-			$new_object_ids = array_diff( $response['deleted_object_ids'], get_option( 'wc_square_sandbox_helper_object_ids', array() ) );
-			update_option( 'wc_square_sandbox_helper_object_ids', $new_object_ids );
+			if ( isset( $response['deleted_object_ids'] ) ) {
+				$deleted_object_ids = array_merge( $deleted_object_ids, $response['deleted_object_ids'] );
+			}
+		}
+
+		if ( empty( $deleted_object_ids ) ) {
+			return new WP_Error( 'wc_square_sandbox_helper_response_deleted_object_ids', 'No catalog IDs to delete.' );
+		}
+
+		foreach( $cached_object_ids as $type => $oject_ids_array ) {
+			foreach( $deleted_object_ids as $object_id ) {
+				if ( in_array( $object_id, $object_ids_array ) ) {
+					unset( $cached_object_ids[ $type ][ array_search( $object_id, $object_ids_array ) ] );
+					continue;
+				}
+			}
+		}
+
+		update_option( 'wc_square_sandbox_helper_object_ids', $cached_object_ids );
+
+		foreach( $deleted_object_ids as $object_id ) {
+			$product = WooCommerce\Square\Handlers\Product::get_product_by_square_variation_id( $object_id );
+
+			if ( $product ) {
+				$product->delete( true );
+
+				if ( $product->is_type( 'variation' ) && $parent = wc_get_product( $product->get_parent_id() ) ) {
+					$parent->delete( true );
+				}
+			}
 		}
 
 		return $object_ids;
@@ -141,11 +181,12 @@ class WC_Square_Sandbox_API {
 		$method  = 'POST';
 
 		if ( ! $object_ids ) {
-			$object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
+			$cached_object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
+			$object_ids        = ! empty( $cached_object_ids ) && isset( $cached_object_ids['ITEM_VARIATION'] ) ? $cached_object_ids['ITEM_VARIATION'] : null;
 		}
 
 		if ( ! $object_ids ) {
-			return new WP_Error( 'wc_square_sandbox_helper_request', 'Invalid Object IDs provided.' );
+			return new WP_Error( 'wc_square_sandbox_helper_request', 'No cached item variation catalog IDs.' );
 		}
 
 		$batches = array_chunk( $object_ids, 100 );
@@ -180,7 +221,7 @@ class WC_Square_Sandbox_API {
 			}
 		}
 
-		return $response;
+		return $object_ids;
 	}
 
 	private function generate_uuid() {

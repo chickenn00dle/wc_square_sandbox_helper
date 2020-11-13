@@ -47,8 +47,12 @@ class WC_Square_Sandbox_CLI {
 
 		WP_CLI::success( 'Catalog IDs fetched:' );
 
-		foreach ( $result as $catalog_id ) {
-			WP_CLI::line( $catalog_id );
+		foreach ( $result as $object_id_type => $object_ids_array ) {
+			WP_CLI::line( $object_id_type );
+
+			foreach( $object_ids_array as $object_id ) {
+				WP_CLI::line( '    ' . $object_id );
+			}
 		}
 	}
 
@@ -70,16 +74,15 @@ class WC_Square_Sandbox_CLI {
 
 		if ( isset( $assoc_args['max_variations'] ) ) {
 			$max_variations = $assoc_args['max_variations'];
-
-			if ( ! is_numeric( $max_variations ) || 5 < $max_variations ) {
-				WP_CLI::error( 'Invalid value for option max_variations. Must be an integer of 5 or less.' );
-			}
-
 			unset( $assoc_args['max_variations'] );
 		}
 
 		if ( ! empty( $assoc_args ) ) {
 			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
+		}
+
+		if ( ! is_numeric( $max_variations ) || 5 < $max_variations ) {
+			WP_CLI::error( 'Invalid value for option max_variations. Must be an integer of 5 or less.' );
 		}
 
 		$result = $this->api->batch_upsert( $args[0], $args[1], $max_variations );
@@ -113,20 +116,6 @@ class WC_Square_Sandbox_CLI {
 
 		if ( is_wp_error( $result ) ) {
 			WP_CLI::error( $result->get_error_message() );
-		}
-
-		if ( ! empty( $result ) ) {
-			foreach( $result as $object_id ) {
-				$product = WooCommerce\Square\Handlers\Product::get_product_by_square_variation_id( $object_id );
-
-				if ( $product ) {
-					$product->delete( true );
-
-					if ( $product->is_type( 'variation' ) && $parent = wc_get_product( $product->get_parent_id() ) ) {
-						$parent->delete( true );
-					}
-				}
-			}
 		}
 
 		WP_CLI::success( 'Batch delete complete!' );

@@ -46,7 +46,7 @@ Lists all object IDs in current Location ID.
 wp square list
 ```
 
-You can pass an optional `--save` flag to store this list, overriding existing object IDs.
+You can pass an optional `--save` flag to store this list, overriding existing object IDs. Alternatively, you can pass an optional `--cached` flag to display the object IDs that are currently stored in your database.
 
 ### Set Sync Interval
 

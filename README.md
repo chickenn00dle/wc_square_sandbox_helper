@@ -20,7 +20,7 @@ Note: An array of `object_ids` is stored in the sites database for use when chan
 
 ### Batch Delete
 
-This deletes any provided `object_ids` in Square.
+This deletes any provided `object_ids` in both Square and WooCommerce if present.
 
 ```
 wp square batch_delete [ID 1] [ID 2]

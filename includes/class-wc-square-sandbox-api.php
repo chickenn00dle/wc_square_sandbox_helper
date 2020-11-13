@@ -115,10 +115,10 @@ class WC_Square_Sandbox_API {
 
 		$api                = 'catalog/batch-delete';
 		$method             = 'POST';
+		$cached_object_ids  = get_option( 'wc_square_sandbox_helper_object_ids', array() );
 		$deleted_object_ids = array();
 
 		if ( ! $object_ids ) {
-			$cached_object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
 			$object_ids        = array();
 
 			foreach( $cached_object_ids as $object_ids_array ) {
@@ -149,7 +149,7 @@ class WC_Square_Sandbox_API {
 			return new WP_Error( 'wc_square_sandbox_helper_response_deleted_object_ids', 'No catalog IDs to delete.' );
 		}
 
-		foreach( $cached_object_ids as $type => $oject_ids_array ) {
+		foreach( $cached_object_ids as $type => $object_ids_array ) {
 			foreach( $deleted_object_ids as $object_id ) {
 				if ( in_array( $object_id, $object_ids_array ) ) {
 					unset( $cached_object_ids[ $type ][ array_search( $object_id, $object_ids_array ) ] );

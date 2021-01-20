@@ -40,10 +40,10 @@ This adjusts inventory for ID1 and ID2 by +10. If no IDs are provided, Inventory
 
 ### List Catalog
 
-Lists all object IDs in current Location ID.
+Lists all object IDs in current Location ID. If no arguments are provided, this defaults to listing only objects of type ITEM and ITEM_VARIATION. You may provide a comma seperated list of types instead.
 
 ```
-wp square list
+wp square list ITEM,ITEM_VARIATION,CATEGORY
 ```
 
 You can pass an optional `--save` flag to store this list, overriding existing object IDs. Alternatively, you can pass an optional `--cached` flag to display the object IDs that are currently stored in your database.

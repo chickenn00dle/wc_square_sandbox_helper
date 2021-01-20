@@ -18,10 +18,6 @@ class WC_Square_Sandbox_CLI {
 
 	public function list( $args, $assoc_args ) {
 
-		if ( ! empty( $args ) ) {
-			WP_CLI::error( 'list takes no arguments.' );
-		}
-
 		$cached = false;
 		$save   = false;
 			
@@ -39,7 +35,12 @@ class WC_Square_Sandbox_CLI {
 			WP_CLI::error( 'Invalid option provided: ' . implode( ", ", array_keys( $assoc_args ) ) );
 		}
 
-		$result = $this->api->list( $cached, $save );
+		if ( 1 < sizeof( $args ) ) {
+			WP_CLI::error( 'Invalid number of arguments provided: List only accepts a single comma seperated list of types.' );
+		}
+
+		$types  = 1 === sizeof( $args ) ? str_replace( ' ', '', $args[0] ) : '';
+		$result = $this->api->list( $types, $cached, $save );
 
 		if ( is_wp_error( $result ) ) {
 			WP_CLI::error( $result->get_error_message() );

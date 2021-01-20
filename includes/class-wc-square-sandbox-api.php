@@ -23,7 +23,7 @@ class WC_Square_Sandbox_API {
 		$this->location_id  = $square_settings['sandbox_location_id'];
 	}
 
-	public function list( $cached = false, $save = false ) {
+	public function list( $types = '', $cached = false, $save = false ) {
 
 		if ( $cached ) {
 			$object_ids = get_option( 'wc_square_sandbox_helper_object_ids', array() );
@@ -31,20 +31,24 @@ class WC_Square_Sandbox_API {
 			return empty( $object_ids ) ? new WP_Error( 'wc_square_sandbox_helper_empty_cache', 'No cached catalog IDs' ) : $object_ids;
 		}
 
-		$api        = 'catalog/list';
-		$method     = 'GET';
-		$cursor     = null;
-		$query_args = array(
-			"types"  => urlencode( 'ITEM,ITEM_VARIATION' ),
-			"cursor" => $cursor
-		);
+		if ( ! $types ) {
+			$types = 'ITEM,ITEM_VARIATION';
+		}
 
-		$object_ids = array(
-			'ITEM'           => array(),
-			'ITEM_VARIATION' => array(),
+		$api          = 'catalog/list';
+		$method       = 'GET';
+		$cursor       = null;
+		$object_types = explode( ',', $types );
+		$object_ids   = array_combine(
+			$object_types,
+			array_fill( 0, sizeof( $object_types ), array() )
 		);
 
 		do {
+			$query_args = array(
+				"types"  => urlencode( $types ),
+				"cursor" => $cursor
+			);
 
 			$response = $this->request( null, $api, $method, $query_args );
 

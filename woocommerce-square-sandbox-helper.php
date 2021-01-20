@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:     Woocommerce Square Sandbox Helper
- * Plugin URI:      PLUGIN SITE HERE
+ * Plugin URI:      https://github.com/chickenn00dle/wc_square_sandbox_helper
  * Description:     Helper commands for setting up large Square test stores
  * Author:          Rasmy Nguyen
  * Author URI:      https://rzmy.win
